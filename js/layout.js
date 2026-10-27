@@ -1,5 +1,5 @@
 // แปลงเอกสาร → รายการย่อหน้า (ใช้ร่วมกันทั้งหน้าตัวอย่าง/พิมพ์ และไฟล์ Word เพื่อให้ตรงกัน)
-// ย่อหน้า: { runs:[{t,b,sz}|{tab:true}], align, ind:{left,hanging,firstLine} (ซม.), before (pt), tabs:[ซม.] }
+// ย่อหน้า: { runs:[{t,b,sz,u}|{tab:true,u,sz}], align, ind:{left,hanging,firstLine} (ซม.), before (pt), tabs:[ซม.] }
 // ระยะขอบตามแบบหนังสือราชการ: บน 1.5 ซม. ซ้าย 3 ซม. ขวา 2 ซม. ล่าง 2 ซม. · ฟอนต์ TH SarabunPSK 16 pt
 import { toThaiDigits, thaiDate, thaiDateBE } from './thai.js';
 
@@ -25,24 +25,37 @@ function signature(person, before) {
 function memo(d, s, people) {
   const signer = people.find((p) => String(p.id) === String(d.signer_id));
   const H = (t) => R(t, { b: true, sz: 20 });
+  const U = (t) => R(t, { u: 'dotted' });
+  const UTAB = { tab: true, u: 'dotted' };
+  const blank = () => P([]);
+  // เนื้อหา: เว้น 1 บรรทัดระหว่างย่อหน้า ตามแบบจริง
+  const paras = [...lines(d.body), ...lines(d.closing)];
   const out = [
-    P([R('บันทึกข้อความ', { b: true, sz: 29 })], { align: 'center', garuda: 'memo' }),
-    P([H('ส่วนราชการ'), R(`  ${d.dept ?? s.memo_dept}`)], { before: 6 }),
-    P([H('ที่'), R(`  ${d.doc_no || ''}`), TAB, H('วันที่'), R(`  ${thaiDate(d.doc_date)}`)], { tabs: [8] }),
+    P([R('บันทึกข้อความ', { b: true, sz: 29 })], { align: 'center', garuda: 'memo', before: 5 }),
+    P([H('ส่วนราชการ'), R(`  ${d.dept ?? s.memo_dept}`)]),
+    P([H('ที่'), U(`  ${d.doc_no || ''}`), UTAB, H('วันที่'), U(`  ${thaiDate(d.doc_date)}`), UTAB], { tabs: [8, 16] }),
     P([H('เรื่อง'), TAB, R(d.subject)], { ind: { left: 1.4, hanging: 1.4 }, tabs: [1.4] }),
-    P([R('เรียน'), R(`  ${d.to ?? s.director_to}`)], { before: 6 }),
-    ...body(d.body, 6),
-    ...body(d.closing),
-    ...signature(signer, 36),
+    P([{ tab: true, u: 'dotted', sz: 5 }], { tabs: [16] }),
+    P([H('เรียน'), R(`  ${d.to ?? s.director_to}`)]),
   ];
+  paras.forEach((l, i) => { if (i) out.push(blank()); out.push(P([R(l)], { align: 'justify', ind: { firstLine: 2.5 } })); });
+  out.push(...memoSign(signer, 16));
   if (d.director_box) {
-    const dir = findDirector(people);
-    out.push(P([R('ความเห็น/คำสั่งของผู้อำนวยการ', { b: true })], { before: 18 }));
-    out.push(P([R('........................................................................................................................................')], { before: 6 }));
+    out.push(P([R('ความเห็นของผู้อำนวยการสถานศึกษา', { b: true })], { before: 32 }));
     out.push(P([R('........................................................................................................................................')]));
-    out.push(...signature(dir, 30));
+    out.push(P([R('........................................................................................................................................')]));
+    out.push(...memoSign(findDirector(people), 16));
   }
   return out;
+}
+
+// ลงนามแบบบันทึกข้อความจริง: ลงชื่อ / (ชื่อ) / ตำแหน่ง / วันที่ ..../..../....
+function memoSign(person, before) {
+  return [
+    P([R('ลงชื่อ')], { ind: { left: SIGN_IND + 0.5 }, before }),
+    ...signature(person, 0),
+    P([R('................/................/................')], { align: 'center', ind: { left: SIGN_IND } }),
+  ];
 }
 
 function external(d, s, people) {
