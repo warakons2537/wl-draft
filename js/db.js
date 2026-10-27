@@ -34,6 +34,17 @@ export function remoteDb(client) {
       return (await run(client.from(t).update(r).eq('id', r.id).select()))[0];
     },
     remove: (t, id) => run(client.from(t).delete().eq('id', id)),
+    async ai(payload) {   // ให้ Gemini ร่างเนื้อหา ผ่าน Edge Function ชื่อ draft-ai (key เก็บใน Supabase ไม่อยู่ในหน้าเว็บ)
+      const { data, error } = await client.functions.invoke('draft-ai', { body: payload });
+      if (error) {
+        let msg = '';
+        try { msg = (await error.context?.json?.())?.error || ''; } catch { /* */ }
+        if (/not found|404/i.test(`${error.message} ${error.context?.status}`) && !msg) msg = 'ยังไม่ได้ติดตั้งฟังก์ชัน draft-ai ใน Supabase';
+        throw new Error(msg || 'เรียก AI ไม่สำเร็จ ลองใหม่อีกครั้ง');
+      }
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
   };
 }
 
@@ -59,6 +70,7 @@ export function localDb() {
       write(t, all); return r;
     },
     async remove(t, id) { write(t, rows(t).filter((r) => String(r.id) !== String(id))); },
+    async ai() { throw new Error('ปุ่ม AI ใช้ได้เมื่อเข้าสู่ระบบและตั้งค่าฐานข้อมูลแล้วเท่านั้น (โหมดเก็บในเครื่องใช้ไม่ได้)'); },
   };
 }
 
