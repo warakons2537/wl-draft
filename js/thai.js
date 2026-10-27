@@ -11,6 +11,8 @@ const parse = (iso) => { const [y, m, d] = String(iso).split('-').map(Number); r
 
 // "27 ตุลาคม 2569"
 export function thaiDate(iso) { const p = parse(iso); return p ? `${p.d} ${MONTHS[p.m - 1]} ${p.y + 543}` : ''; }
+// "27 ตุลาคม พ.ศ. 2569"
+export function thaiDateBE(iso) { const p = parse(iso); return p ? `${p.d} ${MONTHS[p.m - 1]} พ.ศ. ${p.y + 543}` : ''; }
 // "วันอังคารที่ 27 ตุลาคม 2569"
 export function thaiDateLong(iso) {
   const p = parse(iso); if (!p) return '';

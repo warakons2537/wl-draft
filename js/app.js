@@ -1,6 +1,6 @@
 // WL Draft — ระบบร่างหนังสือราชการ โรงเรียนบ้านวังลึก(ยุวนาฏชนูทิศ)  เฟส 1: บันทึกข้อความ, หนังสือภายนอก
 import { supabaseClient, remoteDb, localDb, signIn } from './db.js';
-import { TEMPLATES, applyTemplate } from './templates.js';
+import { TEMPLATES, applyTemplate, AUTHORITY_DEFAULT } from './templates.js';
 import { buildLayout, findDirector } from './layout.js';
 import { renderSheet } from './render.js';
 import { buildDocx } from './docx.js';
@@ -10,7 +10,8 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const app = $('#app');
-const TYPE_NAME = { memo: 'บันทึกข้อความ', external: 'หนังสือภายนอก' };
+const TYPE_NAME = { memo: 'บันทึกข้อความ', external: 'หนังสือภายนอก', order: 'คำสั่ง', announce: 'ประกาศ' };
+const ROLES = ['ประธานกรรมการ', 'รองประธานกรรมการ', 'กรรมการ', 'กรรมการและเลขานุการ', 'กรรมการและผู้ช่วยเลขานุการ', 'ที่ปรึกษา'];
 const GROUPS = ['ฝ่ายบริหารวิชาการ', 'ฝ่ายบริหารงบประมาณ', 'ฝ่ายบริหารงานบุคคล', 'ฝ่ายบริหารทั่วไป'];
 
 const S = { db: null, client: null, me: null, isAdmin: false, setupNeeded: false, settings: {}, people: [], tab: 'draft', doc: null };
@@ -77,7 +78,8 @@ function newDoc(type) {
     doc_no: type === 'external' ? `${S.settings.doc_code || ''}/` : '',
     doc_date: todayIso(), subject: '',
     to: type === 'memo' ? (S.settings.director_to || '') : '',
-    ref: '', encl: '', body: '', closing: type === 'memo' ? 'จึงเรียนมาเพื่อโปรดทราบและพิจารณา' : 'จึงเรียนมาเพื่อโปรดทราบ',
+    ref: '', encl: '', body: '', closing: ({ memo: 'จึงเรียนมาเพื่อโปรดทราบและพิจารณา', order: 'ให้ผู้ที่ได้รับการแต่งตั้ง ปฏิบัติหน้าที่อย่างเต็มความสามารถ ความรับผิดชอบและเอาใจใส่', announce: 'จึงประกาศให้ทราบโดยทั่วกัน' })[type] || 'จึงเรียนมาเพื่อโปรดทราบ',
+    authority: type === 'order' ? AUTHORITY_DEFAULT : '', appoint: '', groups: type === 'order' ? [{ title: '', members: [], duties: '' }] : [],
     signer_id: type === 'memo' ? (meP?.id || '') : (dir?.id || ''),
     director_box: false, group: '', thaiDigits: true,
   };
@@ -111,7 +113,7 @@ function viewDraft() {
       : `<input data-v="${f.k}" type="${f.type === 'date' ? 'date' : f.type === 'number' ? 'number' : 'text'}" value="${v}"${ph}>`;
     return `<label class="field"><span>${esc(f.label)}</span>${input}</label>`;
   };
-  const ext = d.type === 'external';
+  const ext = d.type === 'external', isOrder = d.type === 'order', hasTo = d.type === 'memo' || ext;
   $('#view').innerHTML = `
   <div class="draft">
     <div class="card">
@@ -123,18 +125,21 @@ function viewDraft() {
       </fieldset>
       <fieldset><legend>2. ตรวจ/แก้ก่อนออกไฟล์</legend>
         <div class="row2">
-          <label class="field"><span>ที่</span><input data-d="doc_no" value="${esc(d.doc_no)}" placeholder="${ext ? '' : 'เว้นว่างได้'}"></label>
+          <label class="field"><span>ที่</span><input data-d="doc_no" value="${esc(d.doc_no)}" placeholder="${ext ? '' : isOrder ? 'เช่น ๒๓/๒๕๖๙' : 'เว้นว่างได้'}"${d.type === 'announce' ? ' disabled' : ''}></label>
           <label class="field"><span>วันที่</span><input data-d="doc_date" type="date" value="${esc(d.doc_date)}"></label>
         </div>
         <label class="field"><span>เรื่อง</span><input data-d="subject" value="${esc(d.subject)}"></label>
-        <label class="field"><span>เรียน</span><input data-d="to" value="${esc(d.to)}"></label>
+        ${hasTo ? `<label class="field"><span>เรียน</span><input data-d="to" value="${esc(d.to)}"></label>` : ''}
         ${ext ? `<label class="field"><span>อ้างถึง (ถ้ามี)</span><input data-d="ref" value="${esc(d.ref)}"></label>
         <label class="field"><span>สิ่งที่ส่งมาด้วย (บรรทัดละรายการ ถ้ามี)</span><textarea data-d="encl">${esc(d.encl)}</textarea></label>` : ''}
-        <label class="field"><span>เนื้อหา (ขึ้นบรรทัดใหม่ = ย่อหน้าใหม่)</span><textarea class="body" data-d="body">${esc(d.body)}</textarea></label>
-        <label class="field"><span>คำลงท้าย</span><input data-d="closing" value="${esc(d.closing)}"></label>
+        <label class="field"><span>${isOrder ? 'ย่อหน้าเปิด (เหตุผล) ขึ้นบรรทัดใหม่ = ย่อหน้าใหม่' : 'เนื้อหา (ขึ้นบรรทัดใหม่ = ย่อหน้าใหม่' + (d.type === 'announce' ? ' · ขึ้นต้นด้วย ๑. = รายการข้อ)' : ')')}</span><textarea class="body" data-d="body">${esc(d.body)}</textarea></label>
+        ${isOrder ? `<label class="field"><span>อาศัยอำนาจตามความใน… (ตรวจให้ถูกต้องก่อนใช้ทุกครั้ง · ลบทิ้งได้)</span><textarea data-d="authority">${esc(d.authority)}</textarea></label>
+        <label class="field"><span>ประโยคแต่งตั้ง</span><textarea data-d="appoint" placeholder="เช่น จึงแต่งตั้งคณะกรรมการ… ดังนี้">${esc(d.appoint)}</textarea></label>
+        <div id="grp"></div>` : ''}
+        <label class="field"><span>${isOrder ? 'ข้อความท้ายคำสั่ง' : 'คำลงท้าย'}</span>${isOrder || d.type === 'announce' ? `<textarea data-d="closing">${esc(d.closing)}</textarea>` : `<input data-d="closing" value="${esc(d.closing)}">`}</label>
         <label class="field"><span>ผู้ลงนาม</span><select data-d="signer_id">${peopleOpts(d.signer_id)}</select></label>
         ${ext ? `<label class="field"><span>ส่วนราชการเจ้าของเรื่อง (ท้ายหนังสือ)</span><input data-d="group" list="groups" value="${esc(d.group)}" placeholder="เช่น ฝ่ายบริหารงานบุคคล"><datalist id="groups">${GROUPS.map((g) => `<option value="${g}">`).join('')}</datalist></label>`
-    : `<label class="check"><input type="checkbox" data-d="director_box" ${d.director_box ? 'checked' : ''}> เพิ่มช่องความเห็น/คำสั่งของผู้อำนวยการ</label>`}
+    : d.type === 'memo' ? `<label class="check"><input type="checkbox" data-d="director_box" ${d.director_box ? 'checked' : ''}> เพิ่มช่องความเห็น/คำสั่งของผู้อำนวยการ</label>` : ''}
         <label class="check"><input type="checkbox" data-d="thaiDigits" ${d.thaiDigits !== false ? 'checked' : ''}> ใช้เลขไทยทั้งฉบับ</label>
       </fieldset>
       <div class="actions">
@@ -165,6 +170,7 @@ function viewDraft() {
     const r = applyTemplate(d.type, tpl.id, d.values, { school: S.settings.school_name, signer });
     if ((d.body.trim()) && !confirm('แทนที่เรื่องและเนื้อหาเดิมด้วยเนื้อหาจากแบบไหม')) return;
     d.subject = r.subject; d.body = r.body; d.closing = r.closing;
+    if (d.type === 'order') d.appoint = r.appoint || '';
     if (r.to !== undefined && r.to) d.to = r.to;
     if (r.ref) d.ref = r.ref;
     if (r.encl) d.encl = r.encl;
@@ -174,7 +180,58 @@ function viewDraft() {
   $('#word').onclick = guard(downloadWord);
   $('#print').onclick = printDoc;
   $('#new').onclick = () => { if ((d.body || d.subject) && !d.id && !confirm('เริ่มร่างใหม่ เนื้อหาที่ยังไม่บันทึกจะหายไป')) return; S.doc = newDoc(d.type); viewDraft(); };
+  if (isOrder) { renderGroups(); }
   preview();
+}
+
+// ------------------------------------------------------------------ คำสั่ง: คณะกรรมการและรายชื่อ
+function renderGroups() {
+  const d = S.doc, box = $('#grp'); if (!box) return;
+  const opts = `<option value="">+ เพิ่มจากรายชื่อบุคลากร…</option>` + S.people.map((p) => `<option value="${esc(p.id)}">${esc(p.full_name)}${p.duty ? ` · ${esc(p.duty)}` : ''}</option>`).join('');
+  box.innerHTML = `<datalist id="roles">${ROLES.map((r) => `<option value="${r}">`).join('')}</datalist>` +
+    d.groups.map((g, gi) => `
+    <div class="grp" data-gi="${gi}">
+      <div class="gh"><span>${gi + 1}.</span><input data-g="title" value="${esc(g.title)}" placeholder="ชื่อคณะกรรมการ เช่น คณะกรรมการอำนวยการ">
+        <button class="btn small" data-op="gup" title="เลื่อนขึ้น">↑</button><button class="btn small" data-op="gdn" title="เลื่อนลง">↓</button><button class="btn small danger" data-op="gdel" title="ลบคณะนี้">✕</button></div>
+      ${g.members.map((m, mi) => `
+      <div class="mem" data-mi="${mi}">
+        <input class="full" data-m="name" value="${esc(m.name)}" placeholder="ชื่อ-สกุล (พิมพ์เองได้)">
+        <input data-m="position" value="${esc(m.position)}" placeholder="ตำแหน่ง">
+        <input data-m="role" list="roles" value="${esc(m.role)}" placeholder="บทบาท">
+        <div class="ops"><span class="no">${gi + 1}.${mi + 1}</span>
+          <button class="btn small" data-op="mup">↑</button><button class="btn small" data-op="mdn">↓</button><button class="btn small danger" data-op="mdel">ลบ</button></div>
+      </div>`).join('')}
+      <div class="actions"><select data-addp>${opts}</select><button class="btn small" data-op="madd">+ พิมพ์รายชื่อเอง</button></div>
+      <label class="field" style="margin-top:8px"><span>หน้าที่ (บรรทัดละข้อ ระบบใส่เลขข้อให้)</span><textarea data-g="duties">${esc(g.duties)}</textarea></label>
+    </div>`).join('') + '<button class="btn" data-op="gadd">+ เพิ่มคณะกรรมการ</button>';
+
+  const move = (arr, i, j) => { if (j < 0 || j >= arr.length) return; [arr[i], arr[j]] = [arr[j], arr[i]]; };
+  box.oninput = (e) => {
+    const gEl = e.target.closest('[data-gi]'); if (!gEl) return; const g = d.groups[+gEl.dataset.gi];
+    if (e.target.dataset.g) g[e.target.dataset.g] = e.target.value;
+    else if (e.target.dataset.m) g.members[+e.target.closest('[data-mi]').dataset.mi][e.target.dataset.m] = e.target.value;
+    preview();
+  };
+  box.onchange = (e) => {
+    if (!e.target.matches('[data-addp]') || !e.target.value) return;
+    const g = d.groups[+e.target.closest('[data-gi]').dataset.gi]; const p = S.people.find((x) => String(x.id) === e.target.value);
+    if (p) g.members.push({ name: p.full_name, position: p.rank || '', role: g.members.length ? 'กรรมการ' : 'ประธานกรรมการ' });
+    renderGroups(); preview();
+  };
+  box.onclick = (e) => {
+    const op = e.target.dataset.op; if (!op) return;
+    const gEl = e.target.closest('[data-gi]'); const gi = gEl ? +gEl.dataset.gi : -1; const g = d.groups[gi];
+    const mEl = e.target.closest('[data-mi]'); const mi = mEl ? +mEl.dataset.mi : -1;
+    if (op === 'gadd') d.groups.push({ title: '', members: [], duties: '' });
+    else if (op === 'gdel') { if (!confirm('ลบคณะกรรมการนี้และรายชื่อในคณะ?')) return; d.groups.splice(gi, 1); }
+    else if (op === 'gup') move(d.groups, gi, gi - 1);
+    else if (op === 'gdn') move(d.groups, gi, gi + 1);
+    else if (op === 'madd') g.members.push({ name: '', position: '', role: g.members.length ? 'กรรมการ' : 'ประธานกรรมการ' });
+    else if (op === 'mdel') g.members.splice(mi, 1);
+    else if (op === 'mup') move(g.members, mi, mi - 1);
+    else if (op === 'mdn') move(g.members, mi, mi + 1);
+    renderGroups(); preview();
+  };
 }
 
 function preview() {

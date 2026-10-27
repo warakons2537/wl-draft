@@ -31,7 +31,7 @@ main { padding: 16px; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .check { display: flex; gap: 8px; align-items: center; margin: 6px 0 10px; font-size: 14px; }
 .seg { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
-.seg button { flex: 1; border: 0; background: #fff; padding: 9px; cursor: pointer; }
+.seg button { flex: 1; font-size: 14px; border: 0; background: #fff; padding: 9px; cursor: pointer; }
 .seg button.on { background: var(--brand); color: #fff; }
 fieldset { border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px 2px; margin: 0 0 12px; }
 legend { font-size: 13px; color: var(--muted); padding: 0 4px; }
@@ -47,7 +47,7 @@ legend { font-size: 13px; color: var(--muted); padding: 0 4px; }
 .sheet { width: 21cm; min-height: 29.7cm; background: #fff; color: #000; box-shadow: 0 1px 6px rgba(0,0,0,.2);
   font-family: 'WL Sarabun', 'TH SarabunPSK', 'TH Sarabun New', serif; font-size: 16pt; line-height: 1.15; }
 .sheet p { margin: 0; white-space: pre-wrap; word-break: break-word; }
-.sheet .tabbox { display: inline-block; text-indent: 0; }
+.sheet .tabbox { display: inline-block; text-indent: 0; white-space: nowrap; vertical-align: top; }
 
 table.list { width: 100%; border-collapse: collapse; font-size: 14px; }
 table.list th, table.list td { padding: 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
@@ -67,3 +67,14 @@ table.list input { width: 100%; padding: 5px 7px; border: 1px solid var(--line);
   body.printing #print-root { display: block; }
   #print-root .sheet { width: auto; min-height: 0; padding: 0 !important; box-shadow: none; }
 }
+
+.seg { flex-wrap: wrap; } .seg button { min-width: 50%; }
+@media (min-width: 560px) { .seg button { min-width: 0; } }
+.grp { border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-bottom: 10px; background: #fafbfd; }
+.grp .gh { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+.grp .gh input { flex: 1; font-weight: 600; }
+.mem { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 8px 0; border-top: 1px dashed var(--line); }
+.mem input { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 16px; width: 100%; }
+.mem .full { grid-column: 1 / -1; }
+.mem .ops { grid-column: 1 / -1; display: flex; gap: 6px; align-items: center; }
+.mem .ops .no { color: var(--muted); font-size: 13px; flex: 1; }

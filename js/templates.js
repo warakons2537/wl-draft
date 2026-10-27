@@ -146,10 +146,65 @@ export const TEMPLATES = {
   ],
 };
 
+
+// อำนาจที่ใช้ในคำสั่งแต่งตั้งของโรงเรียนฉบับก่อนหน้า (ตัดจากคำสั่งเลือกตั้งสภานักเรียน) — ต้องตรวจก่อนใช้ทุกครั้ง
+export const AUTHORITY_DEFAULT = 'มาตรา ๓๙ (วรรคแรก) แห่งพระราชบัญญัติระเบียบบริหารราชการกระทรวงศึกษาธิการ พ.ศ. ๒๕๔๖ และมาตรา ๒๗ (๑) แห่งพระราชบัญญัติระเบียบข้าราชการครูและบุคลากรทางการศึกษา พ.ศ. ๒๕๔๗';
+
+TEMPLATES.order = [
+  {
+    id: 'committee', name: 'แต่งตั้งคณะกรรมการดำเนินงาน',
+    fields: [
+      { k: 'event', label: 'กิจกรรม/โครงการ', ph: 'เช่น กิจกรรมเลือกตั้งสภานักเรียน' },
+      { k: 'year', label: 'ปีการศึกษา', ph: 'เช่น 2569' },
+      { k: 'purpose', label: 'เหตุผล/วัตถุประสงค์ (ถ้ามี)', ph: 'เช่น ส่งเสริมประชาธิปไตยในโรงเรียน' },
+    ],
+    build: (v) => {
+      const ev = v.event || '...'; const yr = v.year ? ` ประจำปีการศึกษา ${v.year}` : '';
+      return {
+        subject: `แต่งตั้งคณะกรรมการดำเนินงาน${ev}${yr}`,
+        body: [`ด้วย{school} ได้กำหนดดำเนิน${ev}${yr}${opt(v.purpose, (p) => ` เพื่อ${p}`)} เพื่อให้การดำเนินงานเป็นไปด้วยความเรียบร้อยและบรรลุตามวัตถุประสงค์`],
+        appoint: `จึงแต่งตั้งคณะกรรมการดำเนินงาน${ev}${yr} ดังนี้`,
+        closing: 'ให้ผู้ที่ได้รับการแต่งตั้ง ปฏิบัติหน้าที่อย่างเต็มความสามารถ ความรับผิดชอบและเอาใจใส่ เพื่อให้งานบรรลุตามวัตถุประสงค์ที่ตั้งไว้',
+      };
+    },
+  },
+  { id: 'blank', name: 'เขียนเอง', fields: [], build: () => ({ subject: '', body: [''], appoint: '', closing: 'ให้ผู้ที่ได้รับการแต่งตั้ง ปฏิบัติหน้าที่อย่างเต็มความสามารถ ความรับผิดชอบและเอาใจใส่' }) },
+];
+
+TEMPLATES.announce = [
+  {
+    id: 'general', name: 'ประกาศทั่วไป',
+    fields: [
+      { k: 'subject', label: 'เรื่องที่ประกาศ', ph: 'เช่น กำหนดการเปิดภาคเรียนที่ 2 ปีการศึกษา 2569' },
+      { k: 'reason', label: 'ความเป็นมา/เหตุผล', type: 'textarea', ph: 'เช่น เพื่อให้การจัดการเรียนการสอนเป็นไปด้วยความเรียบร้อย' },
+      { k: 'what', label: 'สิ่งที่ประกาศ (บรรทัดละข้อ)', type: 'textarea', ph: 'เช่น เปิดภาคเรียนวันที่ 3 พฤศจิกายน 2569' },
+    ],
+    build: (v) => ({
+      subject: v.subject || '',
+      body: [opt(v.reason, (r) => `ด้วย{school} ${r}`), opt(v.what, (w) => `จึงประกาศ ดังนี้\n${String(w).split('\n').map((x) => x.trim()).filter(Boolean).map((x, i) => `${i + 1}. ${x.replace(/^[๐-๙0-9]+[.)]\s*/, '')}`).join('\n')}`)].filter(Boolean),
+      closing: 'จึงประกาศให้ทราบโดยทั่วกัน',
+    }),
+  },
+  {
+    id: 'closure', name: 'ประกาศหยุดเรียน/ปิดทำการ',
+    fields: [
+      F.date, F.date2,
+      { k: 'reason', label: 'เหตุผล', ph: 'เช่น สถานการณ์น้ำท่วม' },
+      { k: 'resume', label: 'วันเปิดทำการตามปกติ', type: 'date' },
+    ],
+    build: (v) => ({
+      subject: `หยุดทำการเรียนการสอน${opt(v.reason, (r) => ` เนื่องจาก${r}`)}`,
+      body: [`ด้วย{school} ${opt(v.reason, (r) => `มีเหตุจำเป็นเนื่องจาก${r} `)}จึงประกาศหยุดทำการเรียนการสอน${opt(when(v), (w) => ` ใน${w}`)}${v.resume ? ` และเปิดทำการเรียนการสอนตามปกติ ใน${thaiDateLong(v.resume)}` : ''}`],
+      closing: 'จึงประกาศให้ทราบโดยทั่วกัน',
+    }),
+  },
+  { id: 'blank', name: 'เขียนเอง', fields: [], build: () => ({ subject: '', body: [''], closing: 'จึงประกาศให้ทราบโดยทั่วกัน' }) },
+];
+
 // แทน {school} ด้วยชื่อโรงเรียน
 export function applyTemplate(type, id, values, ctx) {
   const t = TEMPLATES[type].find((x) => x.id === id) || TEMPLATES[type][0];
   const r = t.build(values || {}, ctx);
   const fix = (s) => String(s ?? '').replaceAll('{school}', ctx.school || 'โรงเรียน');
-  return { ...r, subject: fix(r.subject), body: r.body.map(fix).join('\n'), closing: fix(r.closing) };
+  return { ...r, subject: fix(r.subject), body: r.body.map(fix).join('\n'), closing: fix(r.closing), appoint: fix(r.appoint) };
 }
