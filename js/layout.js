@@ -1,7 +1,7 @@
 // แปลงเอกสาร → รายการย่อหน้า (ใช้ร่วมกันทั้งหน้าตัวอย่าง/พิมพ์ และไฟล์ Word เพื่อให้ตรงกัน)
 // ย่อหน้า: { runs:[{t,b,sz}|{tab:true}], align, ind:{left,hanging,firstLine} (ซม.), before (pt), tabs:[ซม.] }
 // ระยะขอบตามแบบหนังสือราชการ: บน 1.5 ซม. ซ้าย 3 ซม. ขวา 2 ซม. ล่าง 2 ซม. · ฟอนต์ TH SarabunPSK 16 pt
-import { toThaiDigits, thaiDate } from './thai.js';
+import { toThaiDigits, thaiDate, thaiDateBE } from './thai.js';
 
 export const PAGE = { top: 1.5, left: 3, right: 2, bottom: 2 };
 const SIGN_IND = 6;    // ตำแหน่งกลุ่มลงนาม (ซม. จากขอบซ้ายของเนื้อที่)
@@ -68,8 +68,59 @@ function external(d, s, people) {
   return out;
 }
 
+
+// ---------- คำสั่ง / ประกาศ ----------
+const ITEM = /^\s*([๐-๙0-9]+(?:\.[๐-๙0-9]+)*[.)])\s*(.*)$/;
+// ข้อความหลายบรรทัด: บรรทัดที่ขึ้นต้นด้วยเลขข้อ (๑. / 1.1) จัดเป็นรายการย่อหน้าเว้า ที่เหลือเป็นย่อหน้าปกติ
+const bodyItems = (s, first = 0) => lines(s).map((l, i) => {
+  const m = ITEM.exec(l);
+  return m ? P([R(m[1]), TAB, R(m[2])], { align: 'justify', ind: { left: 2.1, hanging: 0.6 }, tabs: [2.1], before: i === 0 ? first : 0 })
+    : P([R(l)], { align: 'justify', ind: { firstLine: 2.5 }, before: i === 0 ? first : 0 });
+});
+const centerHead = (d, s, kind) => [
+  P([R(`${kind}${s.school_name || ''}`, { b: true })], { align: 'center', garuda: kind }),
+  ...(kind === 'คำสั่ง' ? [P([R(`ที่ ${d.doc_no || ''}`, { b: true })], { align: 'center' })] : []),
+  P([R(`เรื่อง ${d.subject || ''}`, { b: true })], { align: 'center' }),
+  P([R('………………………………………………………')], { align: 'center' }),
+];
+const stripNo = (t) => String(t).replace(/^\s*[๐-๙0-9]+[.)]\s*/, '');
+
+function order(d, s, people) {
+  const signer = people.find((p) => String(p.id) === String(d.signer_id)) || findDirector(people);
+  const out = [...centerHead(d, s, 'คำสั่ง')];
+  out.push(...body(d.body, 6));
+  const auth = String(d.authority || '').trim(), app = String(d.appoint || '').trim();
+  if (auth || app) out.push(P([R(`${auth ? `อาศัยอำนาจตามความใน${auth} ` : ''}${app}`.trim())], { align: 'justify', ind: { firstLine: 2.5 } }));
+  (d.groups || []).forEach((g, gi) => {
+    const n = gi + 1;
+    out.push(P([R(`${n}. ${g.title || ''}`, { b: true })], { before: 8 }));
+    (g.members || []).forEach((m, mi) => out.push(P(
+      [R(`${n}.${mi + 1}`), TAB, R(m.name || ''), TAB, R(m.position || ''), TAB, R(m.role || '')],
+      { ind: { left: 1 }, tabs: [2.3, 7.6, 12.4] })));
+    const du = lines(g.duties).map(stripNo);
+    if (du.length === 1) out.push(P([R('มีหน้าที่', { b: true }), TAB, R(du[0])], { ind: { left: 3, hanging: 2 }, tabs: [3], align: 'justify', before: 6 }));
+    else if (du.length > 1) du.forEach((t, i) => out.push(i === 0
+      ? P([R('มีหน้าที่', { b: true }), TAB, R('1.'), TAB, R(t)], { ind: { left: 3.6, hanging: 2.6 }, tabs: [3, 3.6], align: 'justify', before: 6 })
+      : P([R(`${i + 1}.`), TAB, R(t)], { ind: { left: 3.6, hanging: 0.6 }, tabs: [3.6], align: 'justify' })));
+  });
+  out.push(...body(d.closing, 8));
+  out.push(P([R(`สั่ง ณ วันที่ ${thaiDateBE(d.doc_date)}`)], { ind: { left: 3 }, before: 12 }));
+  out.push(...signature(signer, 42));
+  return out;
+}
+
+function announce(d, s, people) {
+  const signer = people.find((p) => String(p.id) === String(d.signer_id)) || findDirector(people);
+  const out = [...centerHead(d, s, 'ประกาศ')];
+  out.push(...bodyItems(d.body, 6));
+  out.push(...bodyItems(d.closing));
+  out.push(P([R(`ประกาศ ณ วันที่ ${thaiDateBE(d.doc_date)}`)], { ind: { left: 3 }, before: 12 }));
+  out.push(...signature(signer, 42));
+  return out;
+}
+
 export function buildLayout(doc, settings, people) {
-  const paras = doc.type === 'external' ? external(doc, settings, people) : memo(doc, settings, people);
+  const paras = ({ external, order, announce }[doc.type] || memo)(doc, settings, people);
   if (doc.thaiDigits !== false) for (const p of paras) for (const r of p.runs) if (r.t) r.t = toThaiDigits(r.t);
   return paras;
 }
