@@ -49,6 +49,7 @@ function startLocal(note) {
 function showLogin() {
   app.innerHTML = `
   <form class="card login" id="lf">
+    <img class="logo big" src="img/logo-192.png" alt="WL Draft">
     <h2>WL Draft</h2>
     <p class="muted">เข้าสู่ระบบด้วยบัญชีเดียวกับ WL Admin</p>
     <label class="field"><span>อีเมล</span><input name="email" type="email" required autocomplete="username"></label>
@@ -92,7 +93,7 @@ function render() {
     ? 'ยังไม่ได้สร้างตารางของ WL Draft ในฐานข้อมูล (รันไฟล์ supabase/wl-draft.sql ครั้งเดียว) ระหว่างนี้ข้อมูลเก็บในเครื่องนี้เท่านั้น'
     : (S.localNote || '');
   app.innerHTML = `
-  <header class="top"><h1>WL Draft · ร่างหนังสือราชการ</h1><span class="who">${esc(S.me?.full_name || '')}</span>${S.client ? '<button id="out">ออก</button>' : ''}</header>
+  <header class="top"><img class="logo" src="img/logo-192.png" alt=""><h1>WL Draft · ร่างหนังสือราชการ</h1><span class="who">${esc(S.me?.full_name || '')}</span>${S.client ? '<button id="out">ออก</button>' : ''}</header>
   <nav class="tabs">${[['draft', 'ร่างหนังสือ'], ['history', 'ประวัติ'], ['people', 'บุคลากร'], ['settings', 'ตั้งค่า']]
     .map(([k, n]) => `<button data-tab="${k}" class="${S.tab === k ? 'on' : ''}">${n}</button>`).join('')}</nav>
   ${banner ? `<div class="banner">${esc(banner)}</div>` : ''}
@@ -122,6 +123,11 @@ function viewDraft() {
         <label class="field"><span>แบบเนื้อหา</span><select id="tpl">${TEMPLATES[d.type].map((t) => `<option value="${t.id}" ${t.id === tpl.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
         ${tpl.fields.map(fld).join('')}
         ${tpl.fields.length ? '<button class="btn primary" id="fill" style="margin-bottom:10px">เติมเนื้อหาจากแบบ</button>' : ''}
+      </fieldset>
+      <fieldset><legend>หรือให้ AI ร่างเรื่องและเนื้อหา</legend>
+        <label class="field"><span>บอกใจความสั้นๆ</span><textarea id="aibrief" placeholder="เช่น ขออนุญาตพานักเรียน 5 คนไปแข่งขันศิลปหัตถกรรมที่โรงเรียนอนุบาลศรีสำโรง วันที่ 29-30 พ.ย.">${esc(d.aiBrief || '')}</textarea></label>
+        <p class="muted">ข้อความนี้ถูกส่งไปที่ Google Gemini (ระดับฟรีอาจถูกนำไปปรับปรุงผลิตภัณฑ์ของ Google) <b>ห้ามพิมพ์ชื่อนักเรียนหรือข้อมูลส่วนบุคคล</b> · AI อาจผิดพลาด ตรวจทุกครั้งก่อนใช้</p>
+        <button class="btn primary" id="ai">ให้ AI ร่าง</button>
       </fieldset>
       <fieldset><legend>2. ตรวจ/แก้ก่อนออกไฟล์</legend>
         <div class="row2">
@@ -175,6 +181,17 @@ function viewDraft() {
     if (r.ref) d.ref = r.ref;
     if (r.encl) d.encl = r.encl;
     viewDraft();
+  });
+  $('#aibrief').oninput = (e) => { d.aiBrief = e.target.value; };
+  $('#ai').onclick = guard(async () => {
+    const brief = $('#aibrief').value.trim(); if (brief.length < 5) throw new Error('กรุณาพิมพ์ใจความอย่างน้อย 1 ประโยค');
+    if (d.body.trim() && !confirm('แทนที่เรื่องและเนื้อหาเดิมด้วยที่ AI ร่างไหม')) return;
+    const btn = $('#ai'); btn.disabled = true; btn.textContent = 'AI กำลังร่าง…';
+    try {
+      const r = await S.db.ai({ type: d.type, brief, school: S.settings.school_name });
+      if (r.subject) d.subject = r.subject; d.body = r.body || d.body;
+      toast('AI ร่างให้แล้ว ตรวจและแก้ก่อนใช้'); viewDraft();
+    } finally { btn.disabled = false; btn.textContent = 'ให้ AI ร่าง'; }
   });
   $('#save').onclick = guard(saveDoc);
   $('#word').onclick = guard(downloadWord);
