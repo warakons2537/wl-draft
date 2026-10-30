@@ -293,7 +293,7 @@ function printDoc() {
 
 // ------------------------------------------------------------------ ประวัติ
 async function viewHistory() {
-  const v = $('#view'); v.innerHTML = '<div class="card">กำลังโหลด…</div>';
+  const v = $('#view'); v.innerHTML = '<div class="loading" role="status"><i class="bar"></i><span>กำลังโหลด…</span></div>';
   const docs = await S.db.list('wd_documents', 'created_at');
   v.innerHTML = `<div class="card scroll">
     ${docs.length ? `<table class="list"><thead><tr><th>วันที่</th><th>ประเภท</th><th>ที่</th><th>เรื่อง</th><th></th></tr></thead><tbody>
