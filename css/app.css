@@ -12,6 +12,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 header.top { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--brand); color: var(--brand-ink); }
 header.top h1 { font-size: 18px; margin: 0; flex: 1; }
+header.top .home { color: inherit; font-size: 13px; text-decoration: none; border: 1px solid rgba(255,255,255,.5); border-radius: 8px; padding: 4px 10px; white-space: nowrap; }
 header.top .who { font-size: 13px; opacity: .9; }
 header.top button { background: transparent; border: 1px solid rgba(255,255,255,.5); color: inherit; border-radius: 8px; padding: 4px 10px; cursor: pointer; }
 nav.tabs { display: flex; gap: 4px; padding: 8px 16px 0; background: var(--card); border-bottom: 1px solid var(--line); overflow-x: auto; }

@@ -93,7 +93,7 @@ function render() {
     ? 'ยังไม่ได้สร้างตารางของ WL Draft ในฐานข้อมูล (รันไฟล์ supabase/wl-draft.sql ครั้งเดียว) ระหว่างนี้ข้อมูลเก็บในเครื่องนี้เท่านั้น'
     : (S.localNote || '');
   app.innerHTML = `
-  <header class="top"><img class="logo" src="img/logo-192.png" alt=""><h1>WL Draft · ร่างหนังสือราชการ</h1><span class="who">${esc(S.me?.full_name || '')}</span>${S.client ? '<button id="out">ออก</button>' : ''}</header>
+  <header class="top"><img class="logo" src="img/logo-192.png" alt=""><h1>WL Draft · ร่างหนังสือราชการ</h1><a class="home" href="../" title="ทางเข้า WL (ทุกแอป)">ทางเข้า WL</a><span class="who">${esc(S.me?.full_name || '')}</span>${S.client ? '<button id="out">ออก</button>' : ''}</header>
   <nav class="tabs">${[['draft', 'ร่างหนังสือ'], ['history', 'ประวัติ'], ['people', 'บุคลากร'], ['settings', 'ตั้งค่า']]
     .map(([k, n]) => `<button data-tab="${k}" class="${S.tab === k ? 'on' : ''}">${n}</button>`).join('')}</nav>
   ${banner ? `<div class="banner">${esc(banner)}</div>` : ''}
