@@ -10,8 +10,8 @@ body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 syst
 button, input, select, textarea { font: inherit; color: inherit; }
 .hidden { display: none !important; }
 
-header.top { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--brand); color: var(--brand-ink); }
-header.top h1 { font-size: 18px; margin: 0; flex: 1; }
+header.top { border-bottom: 3px solid #d9a531; display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--brand); color: var(--brand-ink); }
+header.top h1 { font-family: "Pridi", "Sarabun", serif; font-weight: 600; font-size: 18px; margin: 0; flex: 1; }
 header.top .home { color: inherit; font-size: 13px; text-decoration: none; border: 1px solid rgba(255,255,255,.5); border-radius: 8px; padding: 4px 10px; white-space: nowrap; }
 header.top .who { font-size: 13px; opacity: .9; }
 header.top button { background: transparent; border: 1px solid rgba(255,255,255,.5); color: inherit; border-radius: 8px; padding: 4px 10px; cursor: pointer; }
