@@ -49,6 +49,7 @@ function startLocal(note) {
 function showLogin() {
   app.innerHTML = `
   <form class="card login" id="lf">
+    <a class="login-back" href="../" title="กลับหน้าทางเข้า Wangluek (Y.N.) Connected">← กลับหน้าทางเข้า</a>
     <img class="logo big" src="img/logo-192.png" alt="WL Draft">
     <h2>WL Draft</h2>
     <p class="muted">เข้าสู่ระบบด้วยบัญชีเดียวกับ WL Admin</p>
